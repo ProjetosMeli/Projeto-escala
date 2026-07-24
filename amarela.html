@@ -327,26 +327,37 @@ body.dark ::-webkit-scrollbar-thumb{background:#444}
 .sh-chip.on{background:#1a1a2e;color:#FFD700;border-color:#1a1a2e}
 .sh-quick{border:1px solid #ddd;background:#fff;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:11px}
 .sh-quick:hover{background:#FFFDE7}
+.sh-sel{border:1px solid #ddd;border-radius:6px;padding:4px 8px;font-size:12px;font-weight:700;background:#fff;cursor:pointer}
+body.dark .sh-sel{background:#2a2a2a;border-color:#444;color:#e0e0e0}
 .sh-dates{display:flex;flex-wrap:wrap;gap:5px;max-height:70px;overflow:auto}
 .sh-dcheck{border:1px solid #ddd;border-radius:5px;padding:2px 7px;font-size:11px;cursor:pointer}
 .sh-dcheck.on{background:#FFFDE7;border-color:#B8860B;font-weight:800}
-.sh-summary{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px}
-.sh-summary .b{font-size:20px;font-weight:900;color:#1a1a2e}
-.sh-summary .l{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px}
-.sh-grid{display:grid;grid-template-columns:1fr 46px 1fr;gap:9px;align-items:start}
-.sh-col{display:flex;flex-direction:column;gap:9px}
-.sh-belt{background:#1a1a2e;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:240px}
-.sh-belt span{writing-mode:vertical-rl;transform:rotate(180deg);color:#FFD700;font-weight:900;letter-spacing:6px;font-size:18px}
-.sh-row{display:flex;align-items:stretch;border-bottom:2px solid #d0d0d0}
+.sh-summary{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:9px}
+.sh-summary .b{font-size:17px;font-weight:900;color:#1a1a2e}
+.sh-summary .l{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px}
+.sh-grid{display:grid;grid-template-columns:1fr 34px 1fr;gap:7px;align-items:start}
+.sh-col{display:flex;flex-direction:column;gap:7px}
+.sh-belt{background:#1a1a2e;border-radius:7px;display:flex;align-items:center;justify-content:center;min-height:150px}
+.sh-belt span{writing-mode:vertical-rl;transform:rotate(180deg);color:#FFD700;font-weight:900;letter-spacing:5px;font-size:15px}
+.sh-row{display:flex;align-items:stretch;border-bottom:1px solid #d0d0d0}
 .sh-row:last-child{border-bottom:0}
-.sh-code{background:#FFD700;color:#1a1a2e;font-weight:900;font-size:13px;width:92px;flex:none;text-align:center;padding:5px 3px;display:flex;align-items:center;justify-content:center}
-.sh-code.orange{background:#FF8C00;color:#fff}
-.sh-val{flex:1;text-align:center;font-weight:800;font-variant-numeric:tabular-nums;padding:5px 6px;display:flex;align-items:center;justify-content:center}
-.sh-val .pct{opacity:.7;font-weight:700;margin-left:6px;font-size:11px}
+.sh-row .c-canal{width:74px;flex:none;display:flex;align-items:center;justify-content:center;text-align:center;padding:3px 2px;font-weight:900;font-size:11px;line-height:1.1;word-break:break-word}
+.sh-row .c-qtd{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:3px 4px;font-weight:800;font-variant-numeric:tabular-nums;font-size:12px}
+.sh-row .c-pct{width:78px;flex:none;display:flex;align-items:center;justify-content:center;text-align:center;padding:3px 3px;color:#666;font-weight:700;font-size:11px}
+.sh-row.data .c-canal{background:#FFD700;color:#1a1a2e}
+.sh-row.data .c-canal.orange{background:#FF8C00;color:#fff}
+.sh-row.sh-head{background:#ececec}
+.sh-row.sh-head .c-canal,.sh-row.sh-head .c-qtd,.sh-row.sh-head .c-pct{color:#555;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.3px;line-height:1.05}
+.sh-row.sh-foot{background:#FFF3C4;border-top:2px solid #e6c200}
+.sh-row.sh-foot .c-canal,.sh-row.sh-foot .c-qtd,.sh-row.sh-foot .c-pct{color:#1a1a2e;font-weight:900;font-size:12px}
 body.dark #view-share .sh-bar{background:#1e1e1e;border-color:#333}
 body.dark .sh-chip{background:#2a2a2a;border-color:#444;color:#e0e0e0}
 body.dark .sh-quick{background:#2a2a2a;border-color:#444;color:#e0e0e0}
 body.dark .sh-summary .b{color:#FFD700}
+body.dark .sh-row.sh-head{background:#2a2a2a}
+body.dark .sh-row.sh-head .c-canal,body.dark .sh-row.sh-head .c-qtd,body.dark .sh-row.sh-head .c-pct{color:#aaa}
+body.dark .sh-row.sh-foot{background:#3a331a;border-top-color:#B8860B}
+body.dark .sh-row.sh-foot .c-canal,body.dark .sh-row.sh-foot .c-qtd,body.dark .sh-row.sh-foot .c-pct{color:#FFD700}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
@@ -1910,7 +1921,7 @@ function promptShare(url){
 //  Números vêm do Apps Script via JSONP. Edição = editor da escala (botão Editar).
 // ═══════════════════════════════════════════════════
 const SHARE_URL = "https://script.google.com/a/macros/mercadolivre.com/s/AKfycbyVRU_XS8CZjyGEyksCJJ5ybD5qgCYJfTA2KZ63Qmcwu3WAvinBglzAN3WEau6Cl39GQw/exec"; // Apps Script (JSONP). Vazio = dados de exemplo.
-let shRows=[], shDates=[], shSel=new Set(), shMode='soma', shNDays=1, shLoaded=false, shUpdatedAt='';
+let shRows=[], shDates=[], shSel=new Set(), shMode='soma', shNDays=1, shLoaded=false, shUpdatedAt='', shDow=-1, shDate='';
 let shSMAP={}, shVMAP={}, shTMAP={};
 function shRecompute(){
   shSMAP={};shVMAP={};shTMAP={}; shNDays=shSel.size||1;
@@ -1925,10 +1936,18 @@ function shValE(c){ return shSMAP[c]||0; }
 function shValV(c){ return String(c).slice(-2)==='_V' ? (shTMAP[c]||0) : (shVMAP[c]||0); }
 function shDisp(v){ return shMode==='media'?Math.round(v/shNDays):v; }
 function shFmt(d){ var p=String(d).split('-'); return p.length===3?p[2]+'/'+p[1]:d; }
+var SH_HEAD='<div class="sh-row sh-head"><div class="c-canal">CANAL</div><div class="c-qtd">QUANTIDADE</div><div class="c-pct">PORCENTAGEM</div></div>';
 function shRowHTML(code,col,val,total){
   var pct=total>0?(val/total*100):0;
-  return '<div class="sh-row"><div class="sh-code'+(col==='orange'?' orange':'')+'">'+code+'</div>'
-    +'<div class="sh-val"><b>'+shDisp(val).toLocaleString('pt-BR')+'</b><span class="pct">'+pct.toFixed(1)+'%</span></div></div>';
+  return '<div class="sh-row data"><div class="c-canal'+(col==='orange'?' orange':'')+'">'+code+'</div>'
+    +'<div class="c-qtd">'+shDisp(val).toLocaleString('pt-BR')+'</div>'
+    +'<div class="c-pct">'+pct.toFixed(1)+'%</div></div>';
+}
+function shFootHTML(sub,total){
+  var pct=total>0?(sub/total*100):0;
+  return '<div class="sh-row sh-foot"><div class="c-canal">TOTAL</div>'
+    +'<div class="c-qtd">'+shDisp(sub).toLocaleString('pt-BR')+'</div>'
+    +'<div class="c-pct">'+pct.toFixed(1)+'%</div></div>';
 }
 function renderShareGrid(){
   var body=document.getElementById('sh-body'); if(!body) return;
@@ -1937,20 +1956,23 @@ function renderShareGrid(){
   var totE=0,ativos=0;
   S.postos.forEach(function(p){ toArr(p.pos).forEach(function(it){ var v=shValE(it.c); totE+=v; if(v>0)ativos++; }); });
   function card(p){
-    var sub=0; toArr(p.pos).forEach(function(it){ sub+=shValE(it.c); });
-    var rows=toArr(p.pos).map(function(it){ return shRowHTML(it.c,it.col,shValE(it.c),totE); }).join('');
-    return '<div class="posto"><div class="posto-hd" style="display:flex;justify-content:space-between;align-items:center"><span>'+p.name+'</span>'
-      +'<span style="font-size:11px;color:#555">'+shDisp(sub).toLocaleString('pt-BR')+'</span></div>'+rows+'</div>';
+    var list=toArr(p.pos), sub=0; list.forEach(function(it){ sub+=shValE(it.c); });
+    var rows=list.map(function(it){ return shRowHTML(it.c,it.col,shValE(it.c),totE); }).join('');
+    return '<div class="posto"><div class="posto-hd">'+p.name+'</div>'+SH_HEAD+rows+shFootHTML(sub,totE)+'</div>';
   }
   var left=S.postos.filter(function(p){return p.side==='left';}).map(card).join('');
   var right=S.postos.filter(function(p){return p.side==='right';}).map(card).join('');
   var eHTML='<div class="sh-grid"><div class="sh-col">'+left+'</div><div class="sh-belt"><span>ESTEIRA</span></div><div class="sh-col">'+right+'</div></div>';
   var totV=0;
   toArr(S.berenice.left).concat(toArr(S.berenice.right)).forEach(function(it){ totV+=shValV(it.c); });
-  function berCol(arr){ return toArr(arr).map(function(it){ return shRowHTML(it.c,it.col,shValV(it.c),totV); }).join(''); }
-  var bHTML='<div class="sh-grid"><div class="sh-col"><div class="posto"><div class="posto-hd">CANALIZAÇÕES</div>'+berCol(S.berenice.left)+'</div></div>'
+  function berBlock(title,arr){
+    var l=toArr(arr), sub=0; l.forEach(function(it){ sub+=shValV(it.c); });
+    var rows=l.map(function(it){ return shRowHTML(it.c,it.col,shValV(it.c),totV); }).join('');
+    return '<div class="posto"><div class="posto-hd">'+title+'</div>'+SH_HEAD+rows+shFootHTML(sub,totV)+'</div>';
+  }
+  var bHTML='<div class="sh-grid"><div class="sh-col">'+berBlock('CANALIZAÇÕES',S.berenice.left)+'</div>'
     +'<div class="sh-belt"><span>BERENICE</span></div>'
-    +'<div class="sh-col"><div class="posto"><div class="posto-hd">CANALIZAÇÕES</div>'+berCol(S.berenice.right)+'</div></div></div>';
+    +'<div class="sh-col">'+berBlock('CANALIZAÇÕES',S.berenice.right)+'</div></div>';
   body.innerHTML='<div class="sh-summary">'
     +'<div><div class="b">'+shDisp(totE).toLocaleString('pt-BR')+'</div><div class="l">Esteira ('+(shMode==='media'?'média/dia':'soma')+')</div></div>'
     +'<div><div class="b">'+shDisp(totV).toLocaleString('pt-BR')+'</div><div class="l">Volumoso</div></div>'
@@ -1961,30 +1983,37 @@ function renderShareGrid(){
 }
 function shBuildFilters(){
   var f=document.getElementById('sh-filters'); if(!f) return;
+  var nomes=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  var curtos=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  var dowOpts='<option value="-1">Todos os dias</option>'+nomes.map(function(n,i){ return '<option value="'+i+'"'+(shDow===i?' selected':'')+'>'+n+'</option>'; }).join('');
+  var dtOpts='<option value="">Todas as datas</option>'+shDates.map(function(d){ return '<option value="'+d.dia+'"'+(shDate===d.dia?' selected':'')+'>'+shFmt(d.dia)+' ('+curtos[shDowOf(d.dia)]+')</option>'; }).join('');
   var top='<span class="lbl">Métrica</span> '
     +'<span class="sh-chip'+(shMode==='soma'?' on':'')+'" onclick="shSetMode(\'soma\')">Soma</span> '
     +'<span class="sh-chip'+(shMode==='media'?' on':'')+'" onclick="shSetMode(\'media\')">Média/dia</span>'
-    +' &nbsp; <span class="lbl">Período</span> '
-    +'<button class="sh-quick" onclick="shQuick(1)">Mais recente</button> '
-    +'<button class="sh-quick" onclick="shQuick(7)">7 dias</button> '
-    +'<button class="sh-quick" onclick="shQuick(30)">30 dias</button> '
-    +'<button class="sh-quick" onclick="shQuick(0)">Todos</button>'
+    +' &nbsp; <span class="lbl">Dia da semana</span> <select class="sh-sel" onchange="shSetDow(this.value)">'+dowOpts+'</select>'
+    +' &nbsp; <span class="lbl">Data</span> <select class="sh-sel" onchange="shSetDate(this.value)">'+dtOpts+'</select>'
     +' <button class="btn-add-sm" onclick="refreshShare()">↻ Atualizar</button>'
     +(shUpdatedAt?'<span style="margin-left:auto;font-size:11px;color:#888">atualizado: '+shUpdatedAt+'</span>':'');
-  var ds=shDates.map(function(d){ return '<span class="sh-dcheck'+(shSel.has(d.dia)?' on':'')+'" onclick="shToggleDate(\''+d.dia+'\')">'+shFmt(d.dia)+'</span>'; }).join('');
-  f.innerHTML='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+top+'</div><div class="sh-dates" style="margin-top:7px">'+ds+'</div>';
+  f.innerHTML='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+top+'</div>';
 }
 function shSetMode(m){ shMode=m; shBuildFilters(); renderShareGrid(); }
-function shToggleDate(d){ if(shSel.has(d))shSel.delete(d); else shSel.add(d); shBuildFilters(); renderShareGrid(); }
-function shQuick(n){ shSel = n===0 ? new Set(shDates.map(function(d){return d.dia;})) : new Set(shDates.slice(0,n).map(function(d){return d.dia;})); shBuildFilters(); renderShareGrid(); }
+function shDowOf(dia){ var p=String(dia).split('-'); return new Date(Number(p[0]),Number(p[1])-1,Number(p[2])).getDay(); }
+function shApplyFilter(){
+  if(shDate){ shSel=new Set([shDate]); }
+  else if(shDow>=0){ shSel=new Set(shDates.filter(function(d){return shDowOf(d.dia)===shDow;}).map(function(d){return d.dia;})); }
+  else { shSel=new Set(shDates.map(function(d){return d.dia;})); }
+  shBuildFilters(); renderShareGrid();
+}
+function shSetDow(v){ shDow=Number(v); shDate=''; shApplyFilter(); }
+function shSetDate(v){ shDate=v; shApplyFilter(); }
 function applyShareRows(rows){
   shRows=rows||[]; var seen={}; shDates=[];
   shRows.forEach(function(r){ if(r.dia&&!seen[r.dia]){ seen[r.dia]=1; shDates.push({dia:r.dia}); } });
   shDates.sort(function(a,b){ return a.dia<b.dia?1:-1; });
   var valid={}; shDates.forEach(function(d){ valid[d.dia]=1; });
-  var keep=Array.from(shSel).filter(function(d){ return valid[d]; }); // preserva o filtro atual
-  shSel = keep.length ? new Set(keep) : new Set(shDates.length?[shDates[0].dia]:[]);
-  shLoaded=true; shBuildFilters(); renderShareGrid();
+  if(shDate && !valid[shDate]) shDate='';                            // data escolhida sumiu
+  if(!shDate && shDow<0) shDate = shDates.length?shDates[0].dia:'';  // padrão: mais recente
+  shLoaded=true; shApplyFilter();                                    // deriva shSel + renderiza
 }
 function shMockRows(){
   var rows=[], today=new Date();
