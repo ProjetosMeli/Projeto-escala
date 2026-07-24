@@ -320,6 +320,33 @@ body.dark ::-webkit-scrollbar-thumb{background:#444}
   .esteira-banner,.volumoso-banner{page-break-before:always}
   .esteira-banner:first-child,.volumoso-banner:first-child{page-break-before:avoid}
 }
+/* ── SHARE (volumes) — mesmo visual da escala ── */
+#view-share .sh-bar{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 10px;margin-bottom:10px}
+#view-share .sh-bar .lbl{font-size:10px;font-weight:900;color:#888;text-transform:uppercase;letter-spacing:.5px}
+.sh-chip{border:1px solid #ddd;background:#f6f7f9;border-radius:16px;padding:3px 11px;cursor:pointer;font-weight:700;font-size:11px}
+.sh-chip.on{background:#1a1a2e;color:#FFD700;border-color:#1a1a2e}
+.sh-quick{border:1px solid #ddd;background:#fff;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:11px}
+.sh-quick:hover{background:#FFFDE7}
+.sh-dates{display:flex;flex-wrap:wrap;gap:5px;max-height:70px;overflow:auto}
+.sh-dcheck{border:1px solid #ddd;border-radius:5px;padding:2px 7px;font-size:11px;cursor:pointer}
+.sh-dcheck.on{background:#FFFDE7;border-color:#B8860B;font-weight:800}
+.sh-summary{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px}
+.sh-summary .b{font-size:20px;font-weight:900;color:#1a1a2e}
+.sh-summary .l{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px}
+.sh-grid{display:grid;grid-template-columns:1fr 46px 1fr;gap:9px;align-items:start}
+.sh-col{display:flex;flex-direction:column;gap:9px}
+.sh-belt{background:#1a1a2e;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:240px}
+.sh-belt span{writing-mode:vertical-rl;transform:rotate(180deg);color:#FFD700;font-weight:900;letter-spacing:6px;font-size:18px}
+.sh-row{display:flex;align-items:stretch;border-bottom:2px solid #d0d0d0}
+.sh-row:last-child{border-bottom:0}
+.sh-code{background:#FFD700;color:#1a1a2e;font-weight:900;font-size:13px;width:92px;flex:none;text-align:center;padding:5px 3px;display:flex;align-items:center;justify-content:center}
+.sh-code.orange{background:#FF8C00;color:#fff}
+.sh-val{flex:1;text-align:center;font-weight:800;font-variant-numeric:tabular-nums;padding:5px 6px;display:flex;align-items:center;justify-content:center}
+.sh-val .pct{opacity:.7;font-weight:700;margin-left:6px;font-size:11px}
+body.dark #view-share .sh-bar{background:#1e1e1e;border-color:#333}
+body.dark .sh-chip{background:#2a2a2a;border-color:#444;color:#e0e0e0}
+body.dark .sh-quick{background:#2a2a2a;border-color:#444;color:#e0e0e0}
+body.dark .sh-summary .b{color:#FFD700}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
@@ -345,6 +372,7 @@ body.dark ::-webkit-scrollbar-thumb{background:#444}
 <div class="tabs">
   <div class="tab active" onclick="switchTab('esteira')">🏭 ESCALA ESTEIRA</div>
   <div class="tab" onclick="switchTab('berenice')">📦 ESCALA BERENICE (Volumoso)</div>
+  <div class="tab" onclick="switchTab('share')">📊 SHARE</div>
 </div>
 <!-- STATS + LEGEND -->
 <div class="top-bar">
@@ -401,6 +429,11 @@ body.dark ::-webkit-scrollbar-thumb{background:#444}
           </div>
           <div class="berenice-extra" id="b-extra"></div>
         </div>
+      </div>
+      <!-- ══ SHARE VIEW ══ -->
+      <div class="view" id="view-share">
+        <div class="sh-bar" id="sh-filters"></div>
+        <div id="sh-body"></div>
       </div>
     </div><!-- /schedule-panel -->
   </div><!-- /schedule-scroll -->
@@ -790,9 +823,15 @@ function setZoom(v){
 let curTab='esteira';
 function switchTab(t){
   curTab=t;
-  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',i===(t==='esteira'?0:1)));
+  const idx={esteira:0,berenice:1,share:2}[t];
+  document.querySelectorAll('.tabs .tab').forEach((el,i)=>el.classList.toggle('active',i===idx));
   document.getElementById('view-esteira').classList.toggle('active',t==='esteira');
   document.getElementById('view-berenice').classList.toggle('active',t==='berenice');
+  document.getElementById('view-share').classList.toggle('active',t==='share');
+  // no Share, esconde o painel de colaboradores e a barra de stats da escala
+  const sb=document.getElementById('sidebar'); if(sb) sb.style.display=(t==='share')?'none':'';
+  const tb=document.querySelector('.top-bar'); if(tb) tb.style.display=(t==='share')?'none':'';
+  if(t==='share'){ loadShareData(); renderShareGrid(); }
   renderSidebar();
 }
 // ═══════════════════════════════════════════════════
@@ -1867,9 +1906,109 @@ function promptShare(url){
   const box=prompt('Copie o link abaixo para compartilhar:',url);
 }
 // ═══════════════════════════════════════════════════
+//  SHARE (volumes) — MESMO layout/dados de canalização da escala (S.postos/S.berenice)
+//  Números vêm do Apps Script via JSONP. Edição = editor da escala (botão Editar).
+// ═══════════════════════════════════════════════════
+const SHARE_URL = ""; // cole o link /exec do seu Apps Script (JSONP). Vazio = dados de exemplo.
+let shRows=[], shDates=[], shSel=new Set(), shMode='soma', shNDays=1, shLoaded=false;
+let shSMAP={}, shVMAP={}, shTMAP={};
+function shRecompute(){
+  shSMAP={};shVMAP={};shTMAP={}; shNDays=shSel.size||1;
+  shRows.forEach(function(r){
+    if(!shSel.has(r.dia)) return;
+    shTMAP[r.canal]=(shTMAP[r.canal]||0)+(r.qtd||0);
+    if(r.tipo==='SORTABLE') shSMAP[r.canal]=(shSMAP[r.canal]||0)+(r.qtd||0);
+    else if(r.tipo==='VOLUMOSO') shVMAP[r.canal]=(shVMAP[r.canal]||0)+(r.qtd||0);
+  });
+}
+function shValE(c){ return shSMAP[c]||0; }
+function shValV(c){ return String(c).slice(-2)==='_V' ? (shTMAP[c]||0) : (shVMAP[c]||0); }
+function shDisp(v){ return shMode==='media'?Math.round(v/shNDays):v; }
+function shFmt(d){ var p=String(d).split('-'); return p.length===3?p[2]+'/'+p[1]:d; }
+function shRowHTML(code,col,val,total){
+  var pct=total>0?(val/total*100):0;
+  return '<div class="sh-row"><div class="sh-code'+(col==='orange'?' orange':'')+'">'+code+'</div>'
+    +'<div class="sh-val"><b>'+shDisp(val).toLocaleString('pt-BR')+'</b><span class="pct">'+pct.toFixed(1)+'%</span></div></div>';
+}
+function renderShareGrid(){
+  var body=document.getElementById('sh-body'); if(!body) return;
+  if(!shLoaded){ body.innerHTML='<div style="padding:30px;text-align:center;color:#999">Carregando volumes…</div>'; return; }
+  shRecompute();
+  var totE=0,ativos=0;
+  S.postos.forEach(function(p){ toArr(p.pos).forEach(function(it){ var v=shValE(it.c); totE+=v; if(v>0)ativos++; }); });
+  function card(p){
+    var sub=0; toArr(p.pos).forEach(function(it){ sub+=shValE(it.c); });
+    var rows=toArr(p.pos).map(function(it){ return shRowHTML(it.c,it.col,shValE(it.c),totE); }).join('');
+    return '<div class="posto"><div class="posto-hd" style="display:flex;justify-content:space-between;align-items:center"><span>'+p.name+'</span>'
+      +'<span style="font-size:11px;color:#555">'+shDisp(sub).toLocaleString('pt-BR')+'</span></div>'+rows+'</div>';
+  }
+  var left=S.postos.filter(function(p){return p.side==='left';}).map(card).join('');
+  var right=S.postos.filter(function(p){return p.side==='right';}).map(card).join('');
+  var eHTML='<div class="sh-grid"><div class="sh-col">'+left+'</div><div class="sh-belt"><span>ESTEIRA</span></div><div class="sh-col">'+right+'</div></div>';
+  var totV=0;
+  toArr(S.berenice.left).concat(toArr(S.berenice.right)).forEach(function(it){ totV+=shValV(it.c); });
+  function berCol(arr){ return toArr(arr).map(function(it){ return shRowHTML(it.c,it.col,shValV(it.c),totV); }).join(''); }
+  var bHTML='<div class="sh-grid"><div class="sh-col"><div class="posto"><div class="posto-hd">CANALIZAÇÕES</div>'+berCol(S.berenice.left)+'</div></div>'
+    +'<div class="sh-belt"><span>BERENICE</span></div>'
+    +'<div class="sh-col"><div class="posto"><div class="posto-hd">CANALIZAÇÕES</div>'+berCol(S.berenice.right)+'</div></div></div>';
+  body.innerHTML='<div class="sh-summary">'
+    +'<div><div class="b">'+shDisp(totE).toLocaleString('pt-BR')+'</div><div class="l">Esteira ('+(shMode==='media'?'média/dia':'soma')+')</div></div>'
+    +'<div><div class="b">'+shDisp(totV).toLocaleString('pt-BR')+'</div><div class="l">Volumoso</div></div>'
+    +'<div><div class="b">'+ativos+'</div><div class="l">canais c/ volume</div></div>'
+    +'<div><div class="b">'+shSel.size+'</div><div class="l">dia(s)</div></div></div>'
+    +'<div class="esteira-banner">🏭 &nbsp; E S T E I R A</div>'+eHTML
+    +'<div class="volumoso-banner" style="margin-top:12px">📦 &nbsp; V O L U M O S O</div>'+bHTML;
+}
+function shBuildFilters(){
+  var f=document.getElementById('sh-filters'); if(!f) return;
+  var top='<span class="lbl">Métrica</span> '
+    +'<span class="sh-chip'+(shMode==='soma'?' on':'')+'" onclick="shSetMode(\'soma\')">Soma</span> '
+    +'<span class="sh-chip'+(shMode==='media'?' on':'')+'" onclick="shSetMode(\'media\')">Média/dia</span>'
+    +' &nbsp; <span class="lbl">Período</span> '
+    +'<button class="sh-quick" onclick="shQuick(1)">Mais recente</button> '
+    +'<button class="sh-quick" onclick="shQuick(7)">7 dias</button> '
+    +'<button class="sh-quick" onclick="shQuick(30)">30 dias</button> '
+    +'<button class="sh-quick" onclick="shQuick(0)">Todos</button>';
+  var ds=shDates.map(function(d){ return '<span class="sh-dcheck'+(shSel.has(d.dia)?' on':'')+'" onclick="shToggleDate(\''+d.dia+'\')">'+shFmt(d.dia)+'</span>'; }).join('');
+  f.innerHTML='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+top+'</div><div class="sh-dates" style="margin-top:7px">'+ds+'</div>';
+}
+function shSetMode(m){ shMode=m; shBuildFilters(); renderShareGrid(); }
+function shToggleDate(d){ if(shSel.has(d))shSel.delete(d); else shSel.add(d); shBuildFilters(); renderShareGrid(); }
+function shQuick(n){ shSel = n===0 ? new Set(shDates.map(function(d){return d.dia;})) : new Set(shDates.slice(0,n).map(function(d){return d.dia;})); shBuildFilters(); renderShareGrid(); }
+function applyShareRows(rows){
+  shRows=rows||[]; var seen={}; shDates=[];
+  shRows.forEach(function(r){ if(r.dia&&!seen[r.dia]){ seen[r.dia]=1; shDates.push({dia:r.dia}); } });
+  shDates.sort(function(a,b){ return a.dia<b.dia?1:-1; });
+  shSel=new Set(shDates.length?[shDates[0].dia]:[]);
+  shLoaded=true; shBuildFilters(); renderShareGrid();
+}
+function shMockRows(){
+  var rows=[], today=new Date();
+  function sd(s){var h=2166136261;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0)/4294967295;}
+  var cE=[], cV=[];
+  S.postos.forEach(function(p){ toArr(p.pos).forEach(function(it){ cE.push(it.c); }); });
+  toArr(S.berenice.left).concat(toArr(S.berenice.right)).forEach(function(it){ cV.push(it.c); });
+  for(var dd=0; dd<20; dd++){
+    var dt=new Date(today.getFullYear(),today.getMonth(),today.getDate()-dd);
+    var dia=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+    cE.forEach(function(c){ rows.push({dia:dia,canal:c,tipo:'SORTABLE',qtd:Math.round(20+sd(c+dia+'s')*400)}); });
+    cV.forEach(function(c){ rows.push({dia:dia,canal:c,tipo:'VOLUMOSO',qtd:Math.round(10+sd(c+dia+'v')*250)}); });
+  }
+  return rows;
+}
+function loadShareData(){
+  if(shLoaded) return;
+  if(!SHARE_URL){ applyShareRows(shMockRows()); return; }
+  var cb='__shcb'+Date.now(), sc=document.createElement('script');
+  window[cb]=function(data){ try{ applyShareRows((data&&data.rows)||[]); }catch(e){ applyShareRows(shMockRows()); } try{ delete window[cb]; sc.remove(); }catch(e){} };
+  sc.onerror=function(){ applyShareRows(shMockRows()); try{ sc.remove(); }catch(e){} };
+  sc.src=SHARE_URL+(SHARE_URL.indexOf('?')>=0?'&':'?')+'callback='+cb;
+  document.head.appendChild(sc);
+}
+// ═══════════════════════════════════════════════════
 //  MASTER RENDER
 // ═══════════════════════════════════════════════════
-function renderAll(){ updateStats(); renderSidebar(); renderEsteira(); renderBerenice(); }
+function renderAll(){ updateStats(); renderSidebar(); renderEsteira(); renderBerenice(); if(shLoaded) renderShareGrid(); }
 // ═══════════════════════════════════════════════════
 //  TOAST
 // ═══════════════════════════════════════════════════
