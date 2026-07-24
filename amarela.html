@@ -1909,8 +1909,8 @@ function promptShare(url){
 //  SHARE (volumes) — MESMO layout/dados de canalização da escala (S.postos/S.berenice)
 //  Números vêm do Apps Script via JSONP. Edição = editor da escala (botão Editar).
 // ═══════════════════════════════════════════════════
-const SHARE_URL = ""; // cole o link /exec do seu Apps Script (JSONP). Vazio = dados de exemplo.
-let shRows=[], shDates=[], shSel=new Set(), shMode='soma', shNDays=1, shLoaded=false;
+const SHARE_URL = "https://script.google.com/a/macros/mercadolivre.com/s/AKfycbyVRU_XS8CZjyGEyksCJJ5ybD5qgCYJfTA2KZ63Qmcwu3WAvinBglzAN3WEau6Cl39GQw/exec"; // Apps Script (JSONP). Vazio = dados de exemplo.
+let shRows=[], shDates=[], shSel=new Set(), shMode='soma', shNDays=1, shLoaded=false, shUpdatedAt='';
 let shSMAP={}, shVMAP={}, shTMAP={};
 function shRecompute(){
   shSMAP={};shVMAP={};shTMAP={}; shNDays=shSel.size||1;
@@ -1968,7 +1968,9 @@ function shBuildFilters(){
     +'<button class="sh-quick" onclick="shQuick(1)">Mais recente</button> '
     +'<button class="sh-quick" onclick="shQuick(7)">7 dias</button> '
     +'<button class="sh-quick" onclick="shQuick(30)">30 dias</button> '
-    +'<button class="sh-quick" onclick="shQuick(0)">Todos</button>';
+    +'<button class="sh-quick" onclick="shQuick(0)">Todos</button>'
+    +' <button class="btn-add-sm" onclick="refreshShare()">↻ Atualizar</button>'
+    +(shUpdatedAt?'<span style="margin-left:auto;font-size:11px;color:#888">atualizado: '+shUpdatedAt+'</span>':'');
   var ds=shDates.map(function(d){ return '<span class="sh-dcheck'+(shSel.has(d.dia)?' on':'')+'" onclick="shToggleDate(\''+d.dia+'\')">'+shFmt(d.dia)+'</span>'; }).join('');
   f.innerHTML='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+top+'</div><div class="sh-dates" style="margin-top:7px">'+ds+'</div>';
 }
@@ -1979,7 +1981,9 @@ function applyShareRows(rows){
   shRows=rows||[]; var seen={}; shDates=[];
   shRows.forEach(function(r){ if(r.dia&&!seen[r.dia]){ seen[r.dia]=1; shDates.push({dia:r.dia}); } });
   shDates.sort(function(a,b){ return a.dia<b.dia?1:-1; });
-  shSel=new Set(shDates.length?[shDates[0].dia]:[]);
+  var valid={}; shDates.forEach(function(d){ valid[d.dia]=1; });
+  var keep=Array.from(shSel).filter(function(d){ return valid[d]; }); // preserva o filtro atual
+  shSel = keep.length ? new Set(keep) : new Set(shDates.length?[shDates[0].dia]:[]);
   shLoaded=true; shBuildFilters(); renderShareGrid();
 }
 function shMockRows(){
@@ -1996,15 +2000,16 @@ function shMockRows(){
   }
   return rows;
 }
-function loadShareData(){
-  if(shLoaded) return;
-  if(!SHARE_URL){ applyShareRows(shMockRows()); return; }
+function loadShareData(force){
+  if(shLoaded && !force) return;
+  if(!SHARE_URL){ shUpdatedAt='(exemplo)'; applyShareRows(shMockRows()); return; }
   var cb='__shcb'+Date.now(), sc=document.createElement('script');
-  window[cb]=function(data){ try{ applyShareRows((data&&data.rows)||[]); }catch(e){ applyShareRows(shMockRows()); } try{ delete window[cb]; sc.remove(); }catch(e){} };
-  sc.onerror=function(){ applyShareRows(shMockRows()); try{ sc.remove(); }catch(e){} };
+  window[cb]=function(data){ try{ shUpdatedAt=(data&&data.updatedAt)||''; applyShareRows((data&&data.rows)||[]); }catch(e){ applyShareRows(shMockRows()); } try{ delete window[cb]; sc.remove(); }catch(e){} };
+  sc.onerror=function(){ shUpdatedAt='(sem conexão — exemplo)'; applyShareRows(shMockRows()); try{ sc.remove(); }catch(e){} };
   sc.src=SHARE_URL+(SHARE_URL.indexOf('?')>=0?'&':'?')+'callback='+cb;
   document.head.appendChild(sc);
 }
+function refreshShare(){ if(typeof toast==='function') toast('↻ Atualizando…'); loadShareData(true); }
 // ═══════════════════════════════════════════════════
 //  MASTER RENDER
 // ═══════════════════════════════════════════════════
