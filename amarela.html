@@ -209,6 +209,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f0f0;color:#222;min-h
 /* ── TOAST ── */
 .toast{position:fixed;bottom:20px;right:20px;background:#1a1a2e;color:#FFD700;padding:10px 16px;border-radius:8px;font-size:12px;font-weight:800;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.3)}
 .toast.show{opacity:1}
+#peek-back{position:fixed;bottom:18px;right:18px;z-index:600;display:none;background:#1a1a2e;color:#FFD700;border:2px solid #FFD700;border-radius:8px;padding:10px 16px;font-weight:900;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:#f1f1f1}
 ::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
@@ -481,7 +482,11 @@ body.dark .sh-row.sh-foot .c-canal,body.dark .sh-row.sh-foot .c-qtd,body.dark .s
 <!-- EDIT MODAL -->
 <div class="overlay" id="edit-overlay">
   <div class="edit-modal">
-    <div class="modal-hd"><span>✏️ Gerenciar Escala</span><button class="close" onclick="closeEdit()">✕</button></div>
+    <div class="modal-hd"><span>✏️ Gerenciar Escala</span>
+      <span style="display:flex;gap:8px;align-items:center">
+        <button class="btn-add-sm" onclick="peekLayout()" title="Ocultar o editor para ver a escala">👁 Ver layout</button>
+        <button class="close" onclick="closeEdit()">✕</button>
+      </span></div>
     <div class="edit-tabs-bar">
       <div class="edit-tab active" onclick="switchEditTab('colabs')">👥 Colaboradores</div>
       <div class="edit-tab" onclick="switchEditTab('canais')">🟡 Canalizações</div>
@@ -546,11 +551,12 @@ body.dark .sh-row.sh-foot .c-canal,body.dark .sh-row.sh-foot .c-qtd,body.dark .s
       </div>
     </div><!-- /edit-body -->
     <div class="modal-footer">
-      <button class="btn btn-rm" onclick="cancelEdit()" style="margin-right:auto;padding:8px 16px">✕ Cancelar</button>
+      <button class="btn btn-rm" onclick="cancelEdit()" style="margin-right:auto;padding:8px 16px">↶ Descartar mudanças</button>
       <button class="btn btn-ok" onclick="closeEdit()">✔ Salvar e Fechar</button>
     </div>
   </div>
 </div>
+<button id="peek-back" onclick="unpeek()">✏️ Voltar ao editor</button>
 <div class="toast" id="toast"></div>
 <script>
 // ═══════════════════════════════════════════════════
@@ -666,6 +672,11 @@ let _savingNow = false, _saveTimer = null;
 // Converte objeto Firebase de volta para array se necessário
 function toArr(v){ return Array.isArray(v)?v:(v&&typeof v==='object'?Object.values(v):[]); }
 function applyMigrations(){
+  // ── Recuperação: se vier vazio/corrompido, restaura os padrões (evita tela em branco) ──
+  var _rec=false;
+  if(S.postos && !toArr(S.postos).length){ S.postos=null; _rec=true; }
+  if(S.collab && !toArr(S.collab.esteira).length && !toArr(S.collab.volumoso).length){ S.collab=null; _rec=true; }
+  if(S.berenice && !toArr(S.berenice.left).length && !toArr(S.berenice.right).length){ S.berenice=null; _rec=true; }
   if(!S.postos)   S.postos   = JSON.parse(JSON.stringify(DEFAULT_POSTOS));
   if(!S.berenice) S.berenice = defBerenice();
   if(!S.absent)   S.absent   = [];
@@ -697,6 +708,7 @@ function applyMigrations(){
     delete S.layoutVersion;
     try{ save(); }catch(e){}
   }
+  if(_rec){ try{ save(); }catch(e){} }   // persiste a recuperação dos dados
 }
 function setConnIndicator(color, title){
   const el=document.getElementById('conn-indicator');
@@ -724,6 +736,7 @@ function setConnIndicator(color, title){
       // Após carregamento, escuta só mudanças de OUTROS aparelhos
       ref.on('value', snap2=>{
         if(_savingNow) return; // ignorar eco do próprio save
+        if(_editing) return;   // não sobrescrever o rascunho enquanto edita
         const d2=snap2.val(); if(!d2) return;
         S=d2; applyMigrations(); renderAll();
       });
@@ -751,6 +764,7 @@ function showFirebaseSetupBanner(){
   document.body.appendChild(banner);
 }
 function save(){
+  if(_editing) return; // rascunho aberto: só grava no "Salvar e Fechar"
   if(_fbConfigured){
     // Marcar que somos nós salvando — ignorar eco do Firebase
     _savingNow=true;
@@ -1502,9 +1516,11 @@ function removeAssignDirect(key){ delete S.assignments[key]; save(); renderAll()
 // ═══════════════════════════════════════════════════
 let curEditTab='colabs';
 let _editBackup=null;
+let _editing=false; // modo rascunho: mudanças no editor só gravam ao "Salvar e Fechar"
 let _selCanals=new Set(); // "secId:code"
 function openEdit(){
-  _editBackup=JSON.parse(JSON.stringify({postos:S.postos,berenice:S.berenice,collab:S.collab,absent:S.absent}));
+  _editing=true;
+  _editBackup=JSON.parse(JSON.stringify({postos:S.postos,berenice:S.berenice,collab:S.collab,absent:S.absent,assignments:S.assignments}));
   _selCanals.clear();
   const nr=document.getElementById('new-canal-rows'); if(nr){ nr.innerHTML=''; _newCanalRowId=0; }
   renderEditColabs(); renderCanaisDetail(); populateSecs(); renderEditAbs();
@@ -1512,17 +1528,23 @@ function openEdit(){
   // Começa com uma linha de adição pronta
   setTimeout(()=>addNewCanalRow(), 50);
 }
+function peekLayout(){ renderAll(); document.getElementById('edit-overlay').classList.remove('open'); document.getElementById('peek-back').style.display='block'; }
+function unpeek(){ document.getElementById('edit-overlay').classList.add('open'); document.getElementById('peek-back').style.display='none'; }
 function closeEdit(){
+  _editing=false; save(); // grava o rascunho de verdade
   document.getElementById('edit-overlay').classList.remove('open');
+  var pb=document.getElementById('peek-back'); if(pb) pb.style.display='none';
   _editBackup=null; _selCanals.clear(); renderAll();
 }
 function cancelEdit(){
   if(_editBackup){
-    S.postos=_editBackup.postos; S.berenice=_editBackup.berenice; S.collab=_editBackup.collab; S.absent=_editBackup.absent||[];
-    save();
+    if(!confirm('Descartar todas as mudanças feitas nesta edição? A escala volta a como estava quando você abriu o editor.')) return;
+    S.postos=_editBackup.postos; S.berenice=_editBackup.berenice; S.collab=_editBackup.collab; S.absent=_editBackup.absent||[]; S.assignments=_editBackup.assignments||{};
   }
+  _editing=false; // nada foi gravado durante a edição, então o banco continua como estava
   document.getElementById('edit-overlay').classList.remove('open');
-  _editBackup=null; renderAll(); toast('Edição cancelada');
+  var pb=document.getElementById('peek-back'); if(pb) pb.style.display='none';
+  _editBackup=null; renderAll(); toast('↶ Mudanças descartadas');
 }
 function switchEditTab(tab){
   curEditTab=tab;
