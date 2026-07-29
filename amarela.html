@@ -366,12 +366,15 @@ body.dark .sh-row.sh-foot .c-canal,body.dark .sh-row.sh-foot .c-qtd,body.dark .s
 .reorg-bench-hd{font-size:11px;font-weight:900;color:#888;letter-spacing:.5px;margin-bottom:6px;text-align:center}
 .reorg-postos{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .reorg-posto{background:#fff;border:2px solid #e0e0e0;border-radius:6px;overflow:hidden}
-.reorg-posto .hd{background:#d8d8d8;font-weight:900;font-size:12px;text-align:center;padding:3px 4px;letter-spacing:.3px}
+.reorg-posto .hd{background:#d8d8d8;font-weight:900;font-size:12px;padding:3px 8px;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:center}
+.reorg-tot{font-size:11px;font-weight:800;color:#1a1a2e}
+body.dark .reorg-tot{color:#FFD700}
 .reorg-drop{min-height:44px;padding:6px;display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start}
 .reorg-drop.bench-drop{min-height:220px}
 .reorg-drop.hl,.reorg-bench.hl{background:#FFFDE7;outline:2px dashed #4caf50;outline-offset:-3px}
 .chip-c{background:#FFD700;color:#1a1a2e;font-weight:900;font-size:12px;border-radius:5px;padding:4px 8px;cursor:grab;border:1px solid #B8860B;user-select:none}
 .chip-c.orange{background:#FF8C00;color:#fff;border-color:#cc5500}
+.chip-pct{font-weight:700;font-size:9px;opacity:.7;margin-left:4px}
 body.dark .reorg-bench,body.dark .reorg-posto{background:#1e1e1e;border-color:#444}
 body.dark .reorg-posto .hd{background:#2a2a2a;color:#FFD700}
 </style>
@@ -1959,7 +1962,7 @@ function promptShare(url){
 // ═══════════════════════════════════════════════════
 const SHARE_URL = "https://script.google.com/a/macros/mercadolivre.com/s/AKfycbyVRU_XS8CZjyGEyksCJJ5ybD5qgCYJfTA2KZ63Qmcwu3WAvinBglzAN3WEau6Cl39GQw/exec"; // Apps Script (JSONP). Vazio = dados de exemplo.
 let shRows=[], shDates=[], shSel=new Set(), shMode='soma', shNDays=1, shLoaded=false, shUpdatedAt='', shDow=-1, shDate='';
-let _reorg=false, _reorgBackup=null, _reorgBench=[], _reorgDrag=null;
+let _reorg=false, _reorgBackup=null, _reorgBenchE=[], _reorgBenchV=[], _reorgDrag=null;
 let shSMAP={}, shVMAP={}, shTMAP={};
 function shRecompute(){
   shSMAP={};shVMAP={};shTMAP={}; shNDays=shSel.size||1;
@@ -2079,10 +2082,11 @@ function loadShareData(force){
 }
 function refreshShare(){ if(typeof toast==='function') toast('↻ Atualizando…'); loadShareData(true); }
 // ── REORGANIZAR canalizações (arrastar entre BANCO e postos) — modo rascunho ──
+function reorgKind(x){ return (x==='benchV'||x==='ber_left'||x==='ber_right') ? 'V' : 'E'; }
 function enterReorg(){
   _reorg=true; _editing=true;
   _reorgBackup=JSON.parse(JSON.stringify({postos:S.postos,berenice:S.berenice,collab:S.collab,absent:S.absent,assignments:S.assignments}));
-  _reorgBench=[]; _reorgDrag=null;
+  _reorgBenchE=[]; _reorgBenchV=[]; _reorgDrag=null;
   var f=document.getElementById('sh-filters'); if(f) f.style.display='none';
   renderReorg();
 }
@@ -2092,29 +2096,34 @@ function exitReorg(){
   shBuildFilters(); renderShareGrid();
 }
 function saveReorg(){
-  if(_reorgBench.length && !confirm(_reorgBench.length+' canalização(ões) ficaram no BANCO (fora dos postos) e sairão do layout. Salvar mesmo assim?')) return;
+  var left=_reorgBenchE.length+_reorgBenchV.length;
+  if(left && !confirm(left+' canalização(ões) ficaram no banco (fora dos postos) e sairão do layout. Salvar mesmo assim?')) return;
   _editing=false; save();
-  _reorgBackup=null; _reorgBench=[];
+  _reorgBackup=null; _reorgBenchE=[]; _reorgBenchV=[];
   exitReorg(); toast('✔ Distribuição salva');
 }
 function cancelReorg(){
   if(!confirm('Descartar a reorganização? A distribuição volta a como estava.')) return;
   if(_reorgBackup){ S.postos=_reorgBackup.postos; S.berenice=_reorgBackup.berenice; S.collab=_reorgBackup.collab; S.absent=_reorgBackup.absent||[]; S.assignments=_reorgBackup.assignments||{}; }
-  _editing=false; _reorgBackup=null; _reorgBench=[];
+  _editing=false; _reorgBackup=null; _reorgBenchE=[]; _reorgBenchV=[];
   exitReorg(); renderAll(); toast('↶ Reorganização descartada');
 }
-function reorgEmptyAll(){
-  S.postos.forEach(function(p){ toArr(p.pos).forEach(function(it){ _reorgBench.push(it); }); p.pos=[]; });
-  toArr(S.berenice.left).forEach(function(it){ _reorgBench.push(it); }); S.berenice.left=[];
-  toArr(S.berenice.right).forEach(function(it){ _reorgBench.push(it); }); S.berenice.right=[];
+function reorgEmptyEst(){
+  S.postos.forEach(function(p){ toArr(p.pos).forEach(function(it){ _reorgBenchE.push(it); }); p.pos=[]; });
   renderReorg();
 }
-function reorgChip(it,src){ return '<div class="chip-c'+(it.col==='orange'?' orange':'')+'" draggable="true" ondragstart="reorgDrag(event,\''+it.c+'\',\''+src+'\')">'+it.c+'</div>'; }
+function reorgEmptyVol(){
+  toArr(S.berenice.left).forEach(function(it){ _reorgBenchV.push(it); }); S.berenice.left=[];
+  toArr(S.berenice.right).forEach(function(it){ _reorgBenchV.push(it); }); S.berenice.right=[];
+  renderReorg();
+}
+function reorgChip(it,src,pct){ var pp=(pct!=null)?'<span class="chip-pct">'+pct+'</span>':''; return '<div class="chip-c'+(it.col==='orange'?' orange':'')+'" draggable="true" ondragstart="reorgDrag(event,\''+it.c+'\',\''+src+'\')">'+it.c+pp+'</div>'; }
 function reorgDrag(ev,code,src){ _reorgDrag={code:code,src:src}; ev.dataTransfer.effectAllowed='move'; try{ev.dataTransfer.setData('text',code);}catch(e){} }
 function reorgAllow(ev){ ev.preventDefault(); ev.currentTarget.classList.add('hl'); }
 function reorgLeave(ev){ ev.currentTarget.classList.remove('hl'); }
 function reorgArr(src){
-  if(src==='bench') return _reorgBench;
+  if(src==='benchE') return _reorgBenchE;
+  if(src==='benchV') return _reorgBenchV;
   if(src==='ber_left'){ S.berenice.left=toArr(S.berenice.left); return S.berenice.left; }
   if(src==='ber_right'){ S.berenice.right=toArr(S.berenice.right); return S.berenice.right; }
   var p=S.postos.find(function(x){return x.id===src;}); if(p){ p.pos=toArr(p.pos); return p.pos; } return null;
@@ -2124,6 +2133,7 @@ function reorgDrop(ev,dst){
   if(!_reorgDrag) return;
   var s=_reorgDrag; _reorgDrag=null;
   if(s.src===dst){ renderReorg(); return; }
+  if(reorgKind(s.src)!==reorgKind(dst)){ toast('Esteira e Volumoso ficam separados'); renderReorg(); return; }
   var from=reorgArr(s.src), to=reorgArr(dst); if(!from||!to){ renderReorg(); return; }
   var i=from.findIndex(function(x){return x.c===s.code;}); if(i<0){ renderReorg(); return; }
   to.push(from.splice(i,1)[0]);
@@ -2131,24 +2141,40 @@ function reorgDrop(ev,dst){
 }
 function renderReorg(){
   var body=document.getElementById('sh-body'); if(!body) return;
-  var bench='<div class="reorg-bench" ondragover="reorgAllow(event)" ondragleave="reorgLeave(event)" ondrop="reorgDrop(event,\'bench\')">'
-    +'<div class="reorg-bench-hd">🗃️ BANCO ('+_reorgBench.length+')</div>'
-    +'<div class="reorg-drop bench-drop">'+_reorgBench.map(function(it){return reorgChip(it,'bench');}).join('')+'</div></div>';
-  function card(name,dst,arr){
-    return '<div class="reorg-posto"><div class="hd">'+name+'</div>'
+  if(shLoaded) shRecompute();
+  function sumE(arr){ var t=0; toArr(arr).forEach(function(it){ t+=shValE(it.c); }); return t; }
+  function sumV(arr){ var t=0; toArr(arr).forEach(function(it){ t+=shValV(it.c); }); return t; }
+  function fmt(n){ return n.toLocaleString('pt-BR'); }
+  function pct(v,tot){ return tot>0 ? (v/tot*100).toFixed(1)+'%' : '0%'; }
+  var totEst=0; S.postos.forEach(function(p){ totEst+=sumE(p.pos); }); totEst+=sumE(_reorgBenchE);
+  var totVol=sumV(S.berenice.left)+sumV(S.berenice.right)+sumV(_reorgBenchV);
+  var benchE='<div class="reorg-bench" ondragover="reorgAllow(event)" ondragleave="reorgLeave(event)" ondrop="reorgDrop(event,\'benchE\')">'
+    +'<div class="reorg-bench-hd">🗃️ BANCO ESTEIRA ('+_reorgBenchE.length+') · '+fmt(sumE(_reorgBenchE))+'</div>'
+    +'<div class="reorg-drop bench-drop">'+_reorgBenchE.map(function(it){return reorgChip(it,'benchE');}).join('')+'</div></div>';
+  var benchV='<div class="reorg-bench" style="margin-top:8px" ondragover="reorgAllow(event)" ondragleave="reorgLeave(event)" ondrop="reorgDrop(event,\'benchV\')">'
+    +'<div class="reorg-bench-hd">🗃️ BANCO VOLUMOSO ('+_reorgBenchV.length+') · '+fmt(sumV(_reorgBenchV))+'</div>'
+    +'<div class="reorg-drop bench-drop">'+_reorgBenchV.map(function(it){return reorgChip(it,'benchV',pct(shValV(it.c),totVol));}).join('')+'</div></div>';
+  function cardE(name,dst,arr){ var tot=sumE(arr);
+    return '<div class="reorg-posto"><div class="hd"><span>'+name+'</span><span class="reorg-tot">'+fmt(tot)+' · '+pct(tot,totEst)+'</span></div>'
       +'<div class="reorg-drop" ondragover="reorgAllow(event)" ondragleave="reorgLeave(event)" ondrop="reorgDrop(event,\''+dst+'\')">'
       +toArr(arr).map(function(it){return reorgChip(it,dst);}).join('')+'</div></div>';
   }
-  var postos='<div class="reorg-postos">'+S.postos.map(function(p){return card(p.name,p.id,p.pos);}).join('')
-    +card('BERENICE — ESQ','ber_left',S.berenice.left)
-    +card('BERENICE — DIR','ber_right',S.berenice.right)+'</div>';
+  function cardV(name,dst,arr){ var tot=sumV(arr);
+    return '<div class="reorg-posto"><div class="hd"><span>'+name+'</span><span class="reorg-tot">'+fmt(tot)+'</span></div>'
+      +'<div class="reorg-drop" ondragover="reorgAllow(event)" ondragleave="reorgLeave(event)" ondrop="reorgDrop(event,\''+dst+'\')">'
+      +toArr(arr).map(function(it){return reorgChip(it,dst,pct(shValV(it.c),totVol));}).join('')+'</div></div>';
+  }
+  var postos='<div class="reorg-postos">'+S.postos.map(function(p){return cardE(p.name,p.id,p.pos);}).join('')
+    +cardV('BERENICE — ESQ','ber_left',S.berenice.left)
+    +cardV('BERENICE — DIR','ber_right',S.berenice.right)+'</div>';
   body.innerHTML='<div class="reorg-top"><b>✋ Reorganizar canalizações</b>'
-    +'<span style="font-size:11px;color:#888">arraste entre o banco e os postos</span>'
-    +'<button class="sh-quick" onclick="reorgEmptyAll()">↧ Tudo pro banco</button>'
+    +'<span style="font-size:11px;color:#888">arraste entre os bancos e os postos · esteira: % por posto · volumoso: % por canalização</span>'
+    +'<button class="sh-quick" onclick="reorgEmptyEst()">↧ Esvaziar Esteira</button>'
+    +'<button class="sh-quick" onclick="reorgEmptyVol()">↧ Esvaziar Volumoso</button>'
     +'<span style="flex:1"></span>'
     +'<button class="btn-add-sm" onclick="saveReorg()">✔ Salvar</button>'
     +'<button class="btn btn-rm" style="padding:5px 12px" onclick="cancelReorg()">↶ Descartar</button></div>'
-    +'<div class="reorg-wrap">'+bench+postos+'</div>';
+    +'<div class="reorg-wrap"><div>'+benchE+benchV+'</div>'+postos+'</div>';
 }
 // ═══════════════════════════════════════════════════
 //  MASTER RENDER
