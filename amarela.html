@@ -359,6 +359,21 @@ body.dark .sh-row.sh-head{background:#2a2a2a}
 body.dark .sh-row.sh-head .c-canal,body.dark .sh-row.sh-head .c-qtd,body.dark .sh-row.sh-head .c-pct{color:#aaa}
 body.dark .sh-row.sh-foot{background:#3a331a;border-top-color:#B8860B}
 body.dark .sh-row.sh-foot .c-canal,body.dark .sh-row.sh-foot .c-qtd,body.dark .sh-row.sh-foot .c-pct{color:#FFD700}
+/* ── REORGANIZAR (arrastar canalizações) ── */
+.reorg-top{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.reorg-wrap{display:grid;grid-template-columns:210px 1fr;gap:10px;align-items:start}
+.reorg-bench{background:#fff;border:2px dashed #B8860B;border-radius:8px;padding:8px;position:sticky;top:0}
+.reorg-bench-hd{font-size:11px;font-weight:900;color:#888;letter-spacing:.5px;margin-bottom:6px;text-align:center}
+.reorg-postos{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.reorg-posto{background:#fff;border:2px solid #e0e0e0;border-radius:6px;overflow:hidden}
+.reorg-posto .hd{background:#d8d8d8;font-weight:900;font-size:12px;text-align:center;padding:3px 4px;letter-spacing:.3px}
+.reorg-drop{min-height:44px;padding:6px;display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start}
+.reorg-drop.bench-drop{min-height:220px}
+.reorg-drop.hl,.reorg-bench.hl{background:#FFFDE7;outline:2px dashed #4caf50;outline-offset:-3px}
+.chip-c{background:#FFD700;color:#1a1a2e;font-weight:900;font-size:12px;border-radius:5px;padding:4px 8px;cursor:grab;border:1px solid #B8860B;user-select:none}
+.chip-c.orange{background:#FF8C00;color:#fff;border-color:#cc5500}
+body.dark .reorg-bench,body.dark .reorg-posto{background:#1e1e1e;border-color:#444}
+body.dark .reorg-posto .hd{background:#2a2a2a;color:#FFD700}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
@@ -856,7 +871,7 @@ function switchTab(t){
   // no Share, esconde o painel de colaboradores e a barra de stats da escala
   const sb=document.getElementById('sidebar'); if(sb) sb.style.display=(t==='share')?'none':'';
   const tb=document.querySelector('.top-bar'); if(tb) tb.style.display=(t==='share')?'none':'';
-  if(t==='share'){ loadShareData(); renderShareGrid(); }
+  if(t==='share'){ if(_reorg){ renderReorg(); } else { loadShareData(); renderShareGrid(); } }
   renderSidebar();
 }
 // ═══════════════════════════════════════════════════
@@ -1944,6 +1959,7 @@ function promptShare(url){
 // ═══════════════════════════════════════════════════
 const SHARE_URL = "https://script.google.com/a/macros/mercadolivre.com/s/AKfycbyVRU_XS8CZjyGEyksCJJ5ybD5qgCYJfTA2KZ63Qmcwu3WAvinBglzAN3WEau6Cl39GQw/exec"; // Apps Script (JSONP). Vazio = dados de exemplo.
 let shRows=[], shDates=[], shSel=new Set(), shMode='soma', shNDays=1, shLoaded=false, shUpdatedAt='', shDow=-1, shDate='';
+let _reorg=false, _reorgBackup=null, _reorgBench=[], _reorgDrag=null;
 let shSMAP={}, shVMAP={}, shTMAP={};
 function shRecompute(){
   shSMAP={};shVMAP={};shTMAP={}; shNDays=shSel.size||1;
@@ -2015,6 +2031,7 @@ function shBuildFilters(){
     +' &nbsp; <span class="lbl">Dia da semana</span> <select class="sh-sel" onchange="shSetDow(this.value)">'+dowOpts+'</select>'
     +' &nbsp; <span class="lbl">Data</span> <select class="sh-sel" onchange="shSetDate(this.value)">'+dtOpts+'</select>'
     +' <button class="btn-add-sm" onclick="refreshShare()">↻ Atualizar</button>'
+    +' <button class="btn-add-sm" style="background:#2d3277;color:#fff" onclick="enterReorg()">✋ Reorganizar</button>'
     +(shUpdatedAt?'<span style="margin-left:auto;font-size:11px;color:#888">atualizado: '+shUpdatedAt+'</span>':'');
   f.innerHTML='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+top+'</div>';
 }
@@ -2061,10 +2078,82 @@ function loadShareData(force){
   document.head.appendChild(sc);
 }
 function refreshShare(){ if(typeof toast==='function') toast('↻ Atualizando…'); loadShareData(true); }
+// ── REORGANIZAR canalizações (arrastar entre BANCO e postos) — modo rascunho ──
+function enterReorg(){
+  _reorg=true; _editing=true;
+  _reorgBackup=JSON.parse(JSON.stringify({postos:S.postos,berenice:S.berenice,collab:S.collab,absent:S.absent,assignments:S.assignments}));
+  _reorgBench=[]; _reorgDrag=null;
+  var f=document.getElementById('sh-filters'); if(f) f.style.display='none';
+  renderReorg();
+}
+function exitReorg(){
+  _reorg=false;
+  var f=document.getElementById('sh-filters'); if(f) f.style.display='';
+  shBuildFilters(); renderShareGrid();
+}
+function saveReorg(){
+  if(_reorgBench.length && !confirm(_reorgBench.length+' canalização(ões) ficaram no BANCO (fora dos postos) e sairão do layout. Salvar mesmo assim?')) return;
+  _editing=false; save();
+  _reorgBackup=null; _reorgBench=[];
+  exitReorg(); toast('✔ Distribuição salva');
+}
+function cancelReorg(){
+  if(!confirm('Descartar a reorganização? A distribuição volta a como estava.')) return;
+  if(_reorgBackup){ S.postos=_reorgBackup.postos; S.berenice=_reorgBackup.berenice; S.collab=_reorgBackup.collab; S.absent=_reorgBackup.absent||[]; S.assignments=_reorgBackup.assignments||{}; }
+  _editing=false; _reorgBackup=null; _reorgBench=[];
+  exitReorg(); renderAll(); toast('↶ Reorganização descartada');
+}
+function reorgEmptyAll(){
+  S.postos.forEach(function(p){ toArr(p.pos).forEach(function(it){ _reorgBench.push(it); }); p.pos=[]; });
+  toArr(S.berenice.left).forEach(function(it){ _reorgBench.push(it); }); S.berenice.left=[];
+  toArr(S.berenice.right).forEach(function(it){ _reorgBench.push(it); }); S.berenice.right=[];
+  renderReorg();
+}
+function reorgChip(it,src){ return '<div class="chip-c'+(it.col==='orange'?' orange':'')+'" draggable="true" ondragstart="reorgDrag(event,\''+it.c+'\',\''+src+'\')">'+it.c+'</div>'; }
+function reorgDrag(ev,code,src){ _reorgDrag={code:code,src:src}; ev.dataTransfer.effectAllowed='move'; try{ev.dataTransfer.setData('text',code);}catch(e){} }
+function reorgAllow(ev){ ev.preventDefault(); ev.currentTarget.classList.add('hl'); }
+function reorgLeave(ev){ ev.currentTarget.classList.remove('hl'); }
+function reorgArr(src){
+  if(src==='bench') return _reorgBench;
+  if(src==='ber_left'){ S.berenice.left=toArr(S.berenice.left); return S.berenice.left; }
+  if(src==='ber_right'){ S.berenice.right=toArr(S.berenice.right); return S.berenice.right; }
+  var p=S.postos.find(function(x){return x.id===src;}); if(p){ p.pos=toArr(p.pos); return p.pos; } return null;
+}
+function reorgDrop(ev,dst){
+  ev.preventDefault(); ev.currentTarget.classList.remove('hl');
+  if(!_reorgDrag) return;
+  var s=_reorgDrag; _reorgDrag=null;
+  if(s.src===dst){ renderReorg(); return; }
+  var from=reorgArr(s.src), to=reorgArr(dst); if(!from||!to){ renderReorg(); return; }
+  var i=from.findIndex(function(x){return x.c===s.code;}); if(i<0){ renderReorg(); return; }
+  to.push(from.splice(i,1)[0]);
+  renderReorg();
+}
+function renderReorg(){
+  var body=document.getElementById('sh-body'); if(!body) return;
+  var bench='<div class="reorg-bench" ondragover="reorgAllow(event)" ondragleave="reorgLeave(event)" ondrop="reorgDrop(event,\'bench\')">'
+    +'<div class="reorg-bench-hd">🗃️ BANCO ('+_reorgBench.length+')</div>'
+    +'<div class="reorg-drop bench-drop">'+_reorgBench.map(function(it){return reorgChip(it,'bench');}).join('')+'</div></div>';
+  function card(name,dst,arr){
+    return '<div class="reorg-posto"><div class="hd">'+name+'</div>'
+      +'<div class="reorg-drop" ondragover="reorgAllow(event)" ondragleave="reorgLeave(event)" ondrop="reorgDrop(event,\''+dst+'\')">'
+      +toArr(arr).map(function(it){return reorgChip(it,dst);}).join('')+'</div></div>';
+  }
+  var postos='<div class="reorg-postos">'+S.postos.map(function(p){return card(p.name,p.id,p.pos);}).join('')
+    +card('BERENICE — ESQ','ber_left',S.berenice.left)
+    +card('BERENICE — DIR','ber_right',S.berenice.right)+'</div>';
+  body.innerHTML='<div class="reorg-top"><b>✋ Reorganizar canalizações</b>'
+    +'<span style="font-size:11px;color:#888">arraste entre o banco e os postos</span>'
+    +'<button class="sh-quick" onclick="reorgEmptyAll()">↧ Tudo pro banco</button>'
+    +'<span style="flex:1"></span>'
+    +'<button class="btn-add-sm" onclick="saveReorg()">✔ Salvar</button>'
+    +'<button class="btn btn-rm" style="padding:5px 12px" onclick="cancelReorg()">↶ Descartar</button></div>'
+    +'<div class="reorg-wrap">'+bench+postos+'</div>';
+}
 // ═══════════════════════════════════════════════════
 //  MASTER RENDER
 // ═══════════════════════════════════════════════════
-function renderAll(){ updateStats(); renderSidebar(); renderEsteira(); renderBerenice(); if(shLoaded) renderShareGrid(); }
+function renderAll(){ updateStats(); renderSidebar(); renderEsteira(); renderBerenice(); if(shLoaded && !_reorg) renderShareGrid(); }
 // ═══════════════════════════════════════════════════
 //  TOAST
 // ═══════════════════════════════════════════════════
